@@ -1,14 +1,15 @@
+# Visual Studio
+.vs/
+
 # Dependencies
 node_modules/
 
 # Next.js
 .next/
 
-# Visual Studio
-.vs/
-
 # Environment variables
 .env.local
 
 # Logs
 *.log
+
