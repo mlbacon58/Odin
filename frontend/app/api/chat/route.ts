@@ -12,7 +12,7 @@ const supabase = createClient(
 
 export async function POST(req: Request) {
   try {
-    const { message, conversationId } = await req.json();
+    const { message, conversationId, userId } = await req.json();
 
     let activeConversationId = conversationId;
 
@@ -21,6 +21,7 @@ export async function POST(req: Request) {
         .from("conversations")
         .insert({
           title: message.substring(0, 60),
+          user_id: userId,
         })
         .select()
         .single();
@@ -53,7 +54,6 @@ export async function POST(req: Request) {
       reply,
       conversationId: activeConversationId,
     });
-
   } catch (error) {
     console.error(error);
 

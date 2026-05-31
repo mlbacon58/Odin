@@ -49,7 +49,7 @@ export default function Home() {
 
     if (Array.isArray(data)) {
       setMessages(
-        data.map((m) => ({
+        data.map((m: any) => ({
           role: m.role,
           content: m.content,
         }))
@@ -68,6 +68,10 @@ export default function Home() {
   async function sendMessage() {
     if (!message.trim()) return;
 
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
     const userMessage: Message = {
       role: "user",
       content: message,
@@ -85,6 +89,7 @@ export default function Home() {
       body: JSON.stringify({
         message: userMessage.content,
         conversationId,
+        userId: user?.id,
       }),
     });
 
@@ -100,6 +105,7 @@ export default function Home() {
     };
 
     setMessages((prev) => [...prev, assistantMessage]);
+
     setLoading(false);
 
     await loadConversations();
@@ -129,21 +135,27 @@ export default function Home() {
                 key={conv.id}
                 onClick={() => loadConversation(conv.id)}
                 className={`w-full text-left p-3 rounded-lg hover:bg-slate-800 ${
-                  conversationId === conv.id ? "bg-slate-800" : "bg-slate-900"
+                  conversationId === conv.id
+                    ? "bg-slate-800"
+                    : "bg-slate-900"
                 }`}
               >
-                <div className="truncate">{conv.title || "Untitled Chat"}</div>
+                <div className="truncate">
+                  {conv.title || "Untitled Chat"}
+                </div>
               </button>
             ))}
           </div>
         </aside>
 
         <section className="flex-1 p-8 overflow-y-auto">
-          <div className="max-w-3xl mx-auto">
-            <h1 className="text-3xl font-bold mb-2">Nuclear AI Platform</h1>
+          <div className="max-w-4xl mx-auto">
+            <h1 className="text-3xl font-bold mb-2">
+              Nuclear AI Platform
+            </h1>
 
-            <p className="text-slate-300 mb-6">
-              GPT-powered engineering chat prototype with saved history.
+            <p className="text-slate-400 mb-6">
+              GPT-powered engineering assistant
             </p>
 
             <div className="space-y-4 mb-6">
@@ -159,7 +171,10 @@ export default function Home() {
                   <div className="text-sm text-slate-400 mb-1">
                     {msg.role === "user" ? "You" : "Assistant"}
                   </div>
-                  <div className="whitespace-pre-wrap">{msg.content}</div>
+
+                  <div className="whitespace-pre-wrap">
+                    {msg.content}
+                  </div>
                 </div>
               ))}
 
@@ -172,7 +187,7 @@ export default function Home() {
 
             <textarea
               className="w-full h-32 p-4 rounded-lg bg-slate-900 border border-slate-700"
-              placeholder="Ask an engineering training or scenario question..."
+              placeholder="Ask an engineering question..."
               value={message}
               onChange={(e) => setMessage(e.target.value)}
             />
