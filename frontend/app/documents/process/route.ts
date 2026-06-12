@@ -20,7 +20,10 @@ export async function POST(req: Request) {
     const { documentId } = await req.json();
 
     if (!documentId) {
-      return Response.json({ error: "Missing documentId." }, { status: 400 });
+      return Response.json(
+        { error: "Missing documentId." },
+        { status: 400 }
+      );
     }
 
     const { data: document, error: docError } = await supabase
@@ -50,15 +53,23 @@ export async function POST(req: Request) {
       text = buffer.toString("utf-8");
     } else {
       return Response.json(
-        { error: "This processor currently supports .txt and .md files only." },
+        {
+          error:
+            "This processor currently supports .txt and .md files only.",
+        },
         { status: 400 }
       );
     }
 
-    const chunks = chunkText(text).filter((chunk) => chunk.trim().length > 0);
+    const chunks = chunkText(text).filter(
+      (chunk) => chunk.trim().length > 0
+    );
 
     if (chunks.length === 0) {
-      return Response.json({ error: "No text could be extracted." }, { status: 400 });
+      return Response.json(
+        { error: "No text could be extracted." },
+        { status: 400 }
+      );
     }
 
     await supabase

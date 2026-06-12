@@ -10,6 +10,24 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+async function searchRelevantChunks(message: string) {
+  const embeddingResponse = await openai.embeddings.create({
+    model: "text-embedding-3-small",
+    input: message,
+  });
+
+  const queryEmbedding = embeddingResponse.data[0].embedding;
+
+  const { data, error } = await supabase.rpc("match_document_chunks", {
+    query_embedding: queryEmbedding,
+    match_count: 5,
+  });
+
+  if (error) throw error;
+
+  return data || [];
+}
+
 export async function POST(req: Request) {
   try {
     const { message, conversationId, userId } = await req.json();
@@ -37,9 +55,30 @@ export async function POST(req: Request) {
       content: message,
     });
 
+    const chunks = await searchRelevantChunks(message);
+
+    const context = chunks
+      .map((chunk: any, index: number) => {
+        return `Source ${index + 1}:\n${chunk.content}`;
+      })
+      .join("\n\n---\n\n");
+
+    const prompt = `
+You are an engineering assistant.
+
+Use the document context below if it is relevant.
+If the document context does not contain the answer, say so clearly.
+
+DOCUMENT CONTEXT:
+${context || "No relevant document context found."}
+
+USER QUESTION:
+${message}
+`;
+
     const response = await openai.responses.create({
       model: "gpt-4.1-mini",
-      input: message,
+      input: prompt,
     });
 
     const reply = response.output_text;
@@ -53,12 +92,13 @@ export async function POST(req: Request) {
     return Response.json({
       reply,
       conversationId: activeConversationId,
+      sources: chunks,
     });
   } catch (error) {
     console.error(error);
 
     return Response.json(
-      { error: "Failed to save or get response." },
+      { error: "Failed to search documents or get response." },
       { status: 500 }
     );
   }

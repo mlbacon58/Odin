@@ -1,0 +1,44 @@
+import OpenAI from "openai";
+import { createClient } from "@supabase/supabase-js";
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+export async function POST(req: Request) {
+  try {
+    const { query } = await req.json();
+
+    if (!query) {
+      return Response.json({ error: "Missing query." }, { status: 400 });
+    }
+
+    const embeddingResponse = await openai.embeddings.create({
+      model: "text-embedding-3-small",
+      input: query,
+    });
+
+    const queryEmbedding = embeddingResponse.data[0].embedding;
+
+    const { data, error } = await supabase.rpc("match_document_chunks", {
+      query_embedding: queryEmbedding,
+      match_count: 5,
+    });
+
+    if (error) throw error;
+
+    return Response.json({ results: data });
+  } catch (error) {
+    console.error(error);
+
+    return Response.json(
+      { error: "Failed to search documents." },
+      { status: 500 }
+    );
+  }
+}

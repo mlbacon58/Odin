@@ -9,8 +9,8 @@ export async function POST(req: Request) {
   try {
     const formData = await req.formData();
 
-    const file = formData.get("file") as File | null;
-    const userId = formData.get("userId") as string | null;
+    const file = formData.get("file") as File;
+    const userId = formData.get("userId") as string;
 
     if (!file) {
       return Response.json({ error: "No file uploaded." }, { status: 400 });
@@ -29,14 +29,11 @@ export async function POST(req: Request) {
     const { error: uploadError } = await supabase.storage
       .from("documents")
       .upload(filePath, buffer, {
-        contentType: file.type || "application/octet-stream",
+        contentType: file.type,
         upsert: false,
       });
 
-    if (uploadError) {
-      console.error("Storage upload error:", uploadError);
-      throw uploadError;
-    }
+    if (uploadError) throw uploadError;
 
     const { data: document, error: dbError } = await supabase
       .from("documents")
@@ -50,17 +47,14 @@ export async function POST(req: Request) {
       .select()
       .single();
 
-    if (dbError) {
-      console.error("Database insert error:", dbError);
-      throw dbError;
-    }
+    if (dbError) throw dbError;
 
     return Response.json({
-      message: "File uploaded successfully.",
       document,
+      message: "File uploaded successfully.",
     });
   } catch (error) {
-    console.error("Upload route error:", error);
+    console.error(error);
 
     return Response.json(
       { error: "Failed to upload document." },
