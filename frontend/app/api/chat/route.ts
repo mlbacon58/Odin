@@ -60,14 +60,15 @@ export async function POST(req: Request) {
 
     const context = chunks
       .map((chunk: any, index: number) => {
-        return `Source ${index + 1}:\n${chunk.content}`;
-      })
-      .join("\n\n---\n\n");
+        return `Source ${index + 1} (${chunk.file_name}):\n${chunk.content}`;
+     })
+     .join("\n\n---\n\n");
 
     const prompt = `
 You are an engineering assistant.
 
 Use the document context below if it is relevant.
+When you use document context, cite the source filename in your answer.
 If the document context does not contain the answer, say so clearly.
 
 DOCUMENT CONTEXT:
