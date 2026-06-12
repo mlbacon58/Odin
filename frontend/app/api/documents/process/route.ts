@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import mammoth from "mammoth";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -40,20 +41,32 @@ export async function POST(req: Request) {
     const arrayBuffer = await fileData.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    let text = "";
+   let text = "";
 
-    if (
-      document.file_type === "text/plain" ||
-      document.file_name.toLowerCase().endsWith(".txt") ||
-      document.file_name.toLowerCase().endsWith(".md")
-    ) {
-      text = buffer.toString("utf-8");
-    } else {
-      return Response.json(
-        { error: "This processor currently supports .txt and .md files only." },
-        { status: 400 }
-      );
-    }
+if (
+  document.file_name.toLowerCase().endsWith(".txt") ||
+  document.file_name.toLowerCase().endsWith(".md")
+) {
+  text = buffer.toString("utf-8");
+}
+else if (
+  document.file_name.toLowerCase().endsWith(".docx")
+) {
+  const result = await mammoth.extractRawText({
+    buffer,
+  });
+
+  text = result.value;
+}
+else {
+  return Response.json(
+    {
+      error:
+        "Supported file types are .txt, .md, and .docx",
+    },
+    { status: 400 }
+  );
+}
 
     const chunks = chunkText(text).filter((chunk) => chunk.trim().length > 0);
 
