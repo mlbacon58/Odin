@@ -12,10 +12,10 @@ const supabase = createClient(
 
 export async function POST(req: Request) {
   try {
-    const { query } = await req.json();
+   const { query, userId } = await req.json();
 
-    if (!query) {
-      return Response.json({ error: "Missing query." }, { status: 400 });
+    if (!userId) {
+      return Response.json({ error: "Missing userId." }, { status: 400 });
     }
 
     const embeddingResponse = await openai.embeddings.create({
@@ -27,6 +27,7 @@ export async function POST(req: Request) {
 
     const { data, error } = await supabase.rpc("match_document_chunks", {
       query_embedding: queryEmbedding,
+      match_user_id: userId,
       match_count: 5,
     });
 
