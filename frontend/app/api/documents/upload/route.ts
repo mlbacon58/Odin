@@ -11,6 +11,7 @@ export async function POST(req: Request) {
 
     const file = formData.get("file") as File | null;
     const userId = formData.get("userId") as string | null;
+    const collectionId = formData.get("collectionId") as string | null;
 
     if (!file) {
       return Response.json({ error: "No file uploaded." }, { status: 400 });
@@ -42,11 +43,12 @@ export async function POST(req: Request) {
       .from("documents")
       .insert({
         user_id: userId,
+        collection_id: collectionId || null,
         file_name: file.name,
         file_path: filePath,
         file_type: file.type,
         status: "uploaded",
-      })
+    })
       .select()
       .single();
 
