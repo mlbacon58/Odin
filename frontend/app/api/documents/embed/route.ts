@@ -47,6 +47,11 @@ export async function POST(req: Request) {
       if (updateError) throw updateError;
     }
 
+    await supabase
+      .from("documents")
+      .update({ status: "embedded" })
+      .eq("id", documentId);
+
     return Response.json({
       message: "Embeddings created.",
       chunks: chunks.length,
