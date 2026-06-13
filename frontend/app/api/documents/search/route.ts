@@ -12,7 +12,7 @@ const supabase = createClient(
 
 export async function POST(req: Request) {
   try {
-    const { query, userId, collectionId } = await req.json();
+    const { query, userId, collectionId, documentIds } = await req.json();
 
     if (!query) {
       return Response.json({ error: "Missing query." }, { status: 400 });
@@ -33,6 +33,8 @@ export async function POST(req: Request) {
       query_embedding: queryEmbedding,
       match_user_id: userId,
       match_collection_id: collectionId || null,
+      match_document_ids:
+        documentIds && documentIds.length > 0 ? documentIds : null,
       match_count: 5,
     });
 

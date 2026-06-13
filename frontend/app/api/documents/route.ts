@@ -15,6 +15,7 @@ export async function GET() {
         file_type,
         status,
         created_at,
+        collection_id,
         document_chunks (
           id,
           embedding
@@ -26,7 +27,10 @@ export async function GET() {
 
     const documents = data.map((doc: any) => {
       const chunks = doc.document_chunks || [];
-      const embeddedChunks = chunks.filter((chunk: any) => chunk.embedding !== null);
+
+      const embeddedChunks = chunks.filter(
+        (chunk: any) => chunk.embedding !== null
+      );
 
       return {
         id: doc.id,
@@ -34,6 +38,7 @@ export async function GET() {
         file_type: doc.file_type,
         status: doc.status,
         created_at: doc.created_at,
+        collection_id: doc.collection_id,
         chunk_count: chunks.length,
         embedded_count: embeddedChunks.length,
       };
