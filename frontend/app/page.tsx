@@ -4,9 +4,16 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-browser";
 
+type Source = {
+  file_name: string;
+  content: string;
+  similarity: number;
+};
+
 type Message = {
   role: "user" | "assistant";
   content: string;
+  sources?: Source[];
 };
 
 type Conversation = {
@@ -130,10 +137,10 @@ export default function Home() {
     const assistantMessage: Message = {
       role: "assistant",
       content: data.reply || data.error || "No response received.",
+      sources: data.sources || [],
     };
 
     setMessages((prev) => [...prev, assistantMessage]);
-
     setLoading(false);
 
     await loadConversations();
@@ -163,9 +170,7 @@ export default function Home() {
                 key={conv.id}
                 onClick={() => loadConversation(conv.id)}
                 className={`w-full text-left p-3 rounded-lg hover:bg-slate-800 ${
-                  conversationId === conv.id
-                    ? "bg-slate-800"
-                    : "bg-slate-900"
+                  conversationId === conv.id ? "bg-slate-800" : "bg-slate-900"
                 }`}
               >
                 <div className="truncate">{conv.title || "Untitled Chat"}</div>
@@ -217,6 +222,32 @@ export default function Home() {
                   </div>
 
                   <div className="whitespace-pre-wrap">{msg.content}</div>
+
+                  {msg.role === "assistant" &&
+                    msg.sources &&
+                    msg.sources.length > 0 && (
+                      <div className="mt-4 border-t border-slate-700 pt-3">
+                        <div className="text-xs text-slate-400 mb-2">
+                          Retrieved Sources
+                        </div>
+
+                        {msg.sources.map((source, idx) => (
+                          <details
+                            key={idx}
+                            className="mb-2 bg-slate-950 border border-slate-700 rounded p-2"
+                          >
+                            <summary className="cursor-pointer text-sm text-blue-300">
+                              {source.file_name} (
+                              {Number(source.similarity).toFixed(2)})
+                            </summary>
+
+                            <div className="mt-2 text-sm text-slate-300 whitespace-pre-wrap">
+                              {source.content}
+                            </div>
+                          </details>
+                        ))}
+                      </div>
+                    )}
                 </div>
               ))}
 
