@@ -15,6 +15,11 @@ type Conversation = {
   created_at: string;
 };
 
+type Collection = {
+  id: string;
+  name: string;
+};
+
 export default function Home() {
   const router = useRouter();
   const supabase = createClient();
@@ -22,16 +27,40 @@ export default function Home() {
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [collections, setCollections] = useState<Collection[]>([]);
+  const [selectedCollectionId, setSelectedCollectionId] = useState("");
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     loadConversations();
+    loadCollections();
   }, []);
+
+  async function getUserId() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    return user?.id || null;
+  }
 
   async function signOut() {
     await supabase.auth.signOut();
     router.push("/login");
+  }
+
+  async function loadCollections() {
+    const userId = await getUserId();
+
+    if (!userId) return;
+
+    const res = await fetch(`/api/collections?userId=${userId}`);
+    const data = await res.json();
+
+    if (Array.isArray(data)) {
+      setCollections(data);
+    }
   }
 
   async function loadConversations() {
@@ -68,9 +97,7 @@ export default function Home() {
   async function sendMessage() {
     if (!message.trim()) return;
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const userId = await getUserId();
 
     const userMessage: Message = {
       role: "user",
@@ -89,7 +116,8 @@ export default function Home() {
       body: JSON.stringify({
         message: userMessage.content,
         conversationId,
-        userId: user?.id,
+        userId,
+        collectionId: selectedCollectionId || null,
       }),
     });
 
@@ -140,9 +168,7 @@ export default function Home() {
                     : "bg-slate-900"
                 }`}
               >
-                <div className="truncate">
-                  {conv.title || "Untitled Chat"}
-                </div>
+                <div className="truncate">{conv.title || "Untitled Chat"}</div>
               </button>
             ))}
           </div>
@@ -150,13 +176,31 @@ export default function Home() {
 
         <section className="flex-1 p-8 overflow-y-auto">
           <div className="max-w-4xl mx-auto">
-            <h1 className="text-3xl font-bold mb-2">
-              Nuclear AI Platform
-            </h1>
+            <h1 className="text-3xl font-bold mb-2">Nuclear AI Platform</h1>
 
             <p className="text-slate-400 mb-6">
               GPT-powered engineering assistant
             </p>
+
+            <div className="bg-slate-900 border border-slate-700 rounded-lg p-4 mb-6">
+              <label className="block text-sm text-slate-400 mb-2">
+                Knowledge collection
+              </label>
+
+              <select
+                value={selectedCollectionId}
+                onChange={(e) => setSelectedCollectionId(e.target.value)}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-white"
+              >
+                <option value="">All documents</option>
+
+                {collections.map((collection) => (
+                  <option key={collection.id} value={collection.id}>
+                    {collection.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             <div className="space-y-4 mb-6">
               {messages.map((msg, index) => (
@@ -172,9 +216,7 @@ export default function Home() {
                     {msg.role === "user" ? "You" : "Assistant"}
                   </div>
 
-                  <div className="whitespace-pre-wrap">
-                    {msg.content}
-                  </div>
+                  <div className="whitespace-pre-wrap">{msg.content}</div>
                 </div>
               ))}
 

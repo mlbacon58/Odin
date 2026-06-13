@@ -10,8 +10,12 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-async function searchRelevantChunks(message: string, userId: string) {
-  const embeddingResponse = await openai.embeddings.create({
+async function searchRelevantChunks(
+  message: string,
+  userId: string,
+  collectionId?: string | null
+) {
+    const embeddingResponse = await openai.embeddings.create({
     model: "text-embedding-3-small",
     input: message,
   });
@@ -19,9 +23,10 @@ async function searchRelevantChunks(message: string, userId: string) {
   const queryEmbedding = embeddingResponse.data[0].embedding;
 
   const { data, error } = await supabase.rpc("match_document_chunks", {
-    query_embedding: queryEmbedding,
-    match_user_id: userId,
-    match_count: 5,
+  query_embedding: queryEmbedding,
+  match_user_id: userId,
+  match_collection_id: collectionId || null,
+  match_count: 5,
   });
 
   if (error) throw error;
@@ -31,7 +36,7 @@ async function searchRelevantChunks(message: string, userId: string) {
 
 export async function POST(req: Request) {
   try {
-    const { message, conversationId, userId } = await req.json();
+    const { message, conversationId, userId, collectionId } = await req.json();
 
     let activeConversationId = conversationId;
 
@@ -56,7 +61,7 @@ export async function POST(req: Request) {
       content: message,
     });
 
-    const chunks = await searchRelevantChunks(message, userId);
+    const chunks = await searchRelevantChunks(message, userId, collectionId);
 
     const context = chunks
       .map((chunk: any, index: number) => {
