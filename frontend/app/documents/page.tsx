@@ -216,6 +216,37 @@ function collectionName(id?: string | null) {
   return collections.find((collection) => collection.id === id)?.name || "Unknown collection";
 }
 
+async function reprocessDocument(id: string) {
+  const confirmed = window.confirm(
+    "Reprocess this document and recreate its embeddings?"
+  );
+
+  if (!confirmed) return;
+
+  setStatus("Reprocessing and embedding document...");
+
+  const res = await fetch("/api/documents/reprocess", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ documentId: id }),
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    setStatus(data.error || "Reprocess failed.");
+    return;
+  }
+
+  setStatus(
+    `Reprocess complete. Chunks: ${data.chunks}, Embedded: ${data.embedded}`
+  );
+
+  await loadDocuments();
+}
+
 return (
   <main className="min-h-screen bg-slate-950 text-white p-8">
     <div className="max-w-5xl mx-auto">
@@ -334,6 +365,13 @@ return (
              >
                Embed
              </button>
+
+             <button
+               onClick={() => reprocessDocument(doc.id)}
+               className="bg-yellow-700 hover:bg-yellow-600 px-4 py-2 rounded"
+              >
+               Reprocess
+              </button>
 
              <button 
                onClick={() => deleteDocument(doc.id)}

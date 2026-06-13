@@ -7,16 +7,22 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 ); 
 
-function chunkText(text: string, chunkSize = 1200) { 
+function chunkText(text: string, chunkSize = 1000, overlap = 200) {
   const chunks: string[] = [];
- 
-  for (let i = 0; i < text.length; i += chunkSize) {
-    chunks.push(text.slice(i, i + chunkSize));
+
+  let start = 0;
+
+  while (start < text.length) {
+    const end = start + chunkSize;
+    const chunk = text.slice(start, end);
+
+    chunks.push(chunk);
+
+    start += chunkSize - overlap;
   }
 
-  return chunks; 
-} 
-
+  return chunks;
+}
 export async function POST(req: Request) {
   try { 
     const { documentId } = await req.json();
