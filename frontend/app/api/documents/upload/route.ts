@@ -57,10 +57,36 @@ export async function POST(req: Request) {
       throw dbError;
     }
 
-    return Response.json({
-      message: "File uploaded successfully.",
-      document,
-    });
+    const baseUrl = new URL(req.url).origin;
+
+const reprocessRes = await fetch(`${baseUrl}/api/documents/reprocess`, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    documentId: document.id,
+  }),
+});
+
+const reprocessData = await reprocessRes.json();
+
+if (!reprocessRes.ok) {
+  console.error("Auto processing error:", reprocessData);
+
+  return Response.json({
+    message: "File uploaded, but automatic processing failed.",
+    document,
+    processingError: reprocessData.error || "Auto processing failed.",
+  });
+}
+
+return Response.json({
+  message: "File uploaded and processed successfully.",
+  document,
+  chunks: reprocessData.chunks,
+  embedded: reprocessData.embedded,
+});
   } catch (error) {
     console.error("Upload route error:", error);
 

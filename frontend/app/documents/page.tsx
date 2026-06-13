@@ -137,7 +137,15 @@ export default function DocumentsPage() {
     return;
  }
 
-  setStatus(`Upload complete: ${data.document?.file_name || file.name}`);
+  if (data.processingError) {
+  setStatus(
+    `Upload complete, but processing failed: ${data.processingError}`
+  );
+} else {
+  setStatus(
+    `Upload complete and ready: ${data.document?.file_name || file.name}`
+  );
+}
   setFile(null);
   await loadDocuments();
  }
