@@ -58,6 +58,13 @@ export default function Home() {
   const [exam, setExam] = useState("");
   const [generatingExam, setGeneratingExam] = useState(false);
 
+  const [flashcardTopic, setFlashcardTopic] = useState("");
+  const [cardCount, setCardCount] = useState("20");
+  const [flashcardDifficulty, setFlashcardDifficulty] =
+    useState("intermediate");
+  const [flashcards, setFlashcards] = useState("");
+  const [generatingFlashcards, setGeneratingFlashcards] = useState(false);
+
   useEffect(() => {
     loadConversations();
     loadCollections();
@@ -79,7 +86,6 @@ export default function Home() {
 
   async function loadCollections() {
     const userId = await getUserId();
-
     if (!userId) return;
 
     const res = await fetch(`/api/collections?userId=${userId}`);
@@ -182,6 +188,38 @@ export default function Home() {
 
     setExam(data.exam || data.error || "No exam generated.");
     setGeneratingExam(false);
+  }
+
+  async function generateFlashcards() {
+    if (!flashcardTopic.trim()) return;
+
+    const userId = await getUserId();
+
+    setGeneratingFlashcards(true);
+    setFlashcards("");
+
+    const res = await fetch("/api/flashcards", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        topic: flashcardTopic,
+        cardCount,
+        difficulty: flashcardDifficulty,
+        userId,
+        collectionId: selectedCollectionId || null,
+        documentIds:
+          selectedDocumentIds.length > 0 ? selectedDocumentIds : null,
+      }),
+    });
+
+    const data = await res.json();
+
+    setFlashcards(
+      data.flashcards || data.error || "No flashcards generated."
+    );
+    setGeneratingFlashcards(false);
   }
 
   async function sendMessage() {
@@ -389,6 +427,56 @@ export default function Home() {
               {exam && (
                 <div className="mt-4 p-4 rounded-lg bg-slate-950 border border-slate-700 whitespace-pre-wrap">
                   {exam}
+                </div>
+              )}
+            </div>
+
+            <div className="bg-slate-900 border border-slate-700 rounded-lg p-4 mb-6">
+              <h2 className="text-xl font-bold mb-3">Flashcard Generator</h2>
+
+              <input
+                type="text"
+                value={flashcardTopic}
+                onChange={(e) => setFlashcardTopic(e.target.value)}
+                placeholder="Flashcard topic, e.g. Reactor protection system"
+                className="w-full mb-3 p-3 rounded-lg bg-slate-800 border border-slate-700 text-white"
+              />
+
+              <div className="flex gap-3 mb-3">
+                <input
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={cardCount}
+                  onChange={(e) => setCardCount(e.target.value)}
+                  className="w-32 p-3 rounded-lg bg-slate-800 border border-slate-700 text-white"
+                />
+
+                <select
+                  value={flashcardDifficulty}
+                  onChange={(e) => setFlashcardDifficulty(e.target.value)}
+                  className="flex-1 p-3 rounded-lg bg-slate-800 border border-slate-700 text-white"
+                >
+                  <option value="introductory">Introductory</option>
+                  <option value="intermediate">Intermediate</option>
+                  <option value="advanced">Advanced</option>
+                  <option value="SRO-level">SRO-level</option>
+                </select>
+              </div>
+
+              <button
+                onClick={generateFlashcards}
+                disabled={generatingFlashcards}
+                className="px-5 py-3 rounded-lg bg-emerald-700 hover:bg-emerald-600 disabled:bg-slate-600"
+              >
+                {generatingFlashcards
+                  ? "Generating..."
+                  : "Generate Flashcards"}
+              </button>
+
+              {flashcards && (
+                <div className="mt-4 p-4 rounded-lg bg-slate-950 border border-slate-700 whitespace-pre-wrap">
+                  {flashcards}
                 </div>
               )}
             </div>
