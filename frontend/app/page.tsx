@@ -52,6 +52,12 @@ export default function Home() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const [examTopic, setExamTopic] = useState("");
+  const [questionCount, setQuestionCount] = useState("10");
+  const [difficulty, setDifficulty] = useState("intermediate");
+  const [exam, setExam] = useState("");
+  const [generatingExam, setGeneratingExam] = useState(false);
+
   useEffect(() => {
     loadConversations();
     loadCollections();
@@ -146,6 +152,36 @@ export default function Home() {
     return documents.filter(
       (doc) => doc.collection_id === selectedCollectionId
     );
+  }
+
+  async function generateExam() {
+    if (!examTopic.trim()) return;
+
+    const userId = await getUserId();
+
+    setGeneratingExam(true);
+    setExam("");
+
+    const res = await fetch("/api/exam", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        topic: examTopic,
+        questionCount,
+        difficulty,
+        userId,
+        collectionId: selectedCollectionId || null,
+        documentIds:
+          selectedDocumentIds.length > 0 ? selectedDocumentIds : null,
+      }),
+    });
+
+    const data = await res.json();
+
+    setExam(data.exam || data.error || "No exam generated.");
+    setGeneratingExam(false);
   }
 
   async function sendMessage() {
@@ -307,6 +343,54 @@ export default function Home() {
                   collection or all documents.
                 </p>
               </div>
+            </div>
+
+            <div className="bg-slate-900 border border-slate-700 rounded-lg p-4 mb-6">
+              <h2 className="text-xl font-bold mb-3">Exam Generator</h2>
+
+              <input
+                type="text"
+                value={examTopic}
+                onChange={(e) => setExamTopic(e.target.value)}
+                placeholder="Exam topic, e.g. Reactor kinetics"
+                className="w-full mb-3 p-3 rounded-lg bg-slate-800 border border-slate-700 text-white"
+              />
+
+              <div className="flex gap-3 mb-3">
+                <input
+                  type="number"
+                  min="1"
+                  max="50"
+                  value={questionCount}
+                  onChange={(e) => setQuestionCount(e.target.value)}
+                  className="w-32 p-3 rounded-lg bg-slate-800 border border-slate-700 text-white"
+                />
+
+                <select
+                  value={difficulty}
+                  onChange={(e) => setDifficulty(e.target.value)}
+                  className="flex-1 p-3 rounded-lg bg-slate-800 border border-slate-700 text-white"
+                >
+                  <option value="introductory">Introductory</option>
+                  <option value="intermediate">Intermediate</option>
+                  <option value="advanced">Advanced</option>
+                  <option value="SRO-level">SRO-level</option>
+                </select>
+              </div>
+
+              <button
+                onClick={generateExam}
+                disabled={generatingExam}
+                className="px-5 py-3 rounded-lg bg-purple-700 hover:bg-purple-600 disabled:bg-slate-600"
+              >
+                {generatingExam ? "Generating..." : "Generate Exam"}
+              </button>
+
+              {exam && (
+                <div className="mt-4 p-4 rounded-lg bg-slate-950 border border-slate-700 whitespace-pre-wrap">
+                  {exam}
+                </div>
+              )}
             </div>
 
             <div className="space-y-4 mb-6">
