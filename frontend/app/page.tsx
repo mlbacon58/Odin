@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-browser";
+import { exportTextToPdf } from "@/lib/export-pdf";
 
 type Source = {
   file_name: string;
@@ -425,8 +426,23 @@ export default function Home() {
               </button>
 
               {exam && (
-                <div className="mt-4 p-4 rounded-lg bg-slate-950 border border-slate-700 whitespace-pre-wrap">
-                  {exam}
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      exportTextToPdf(
+                        examTopic ? `Odin Exam - ${examTopic}` : "Odin Exam",
+                        exam
+                      )
+                    }
+                    className="mb-3 px-4 py-2 rounded bg-slate-700 hover:bg-slate-600"
+                  >
+                    Export Exam PDF
+                  </button>
+
+                  <div className="p-4 rounded-lg bg-slate-950 border border-slate-700 whitespace-pre-wrap">
+                    {exam}
+                  </div>
                 </div>
               )}
             </div>
@@ -475,8 +491,25 @@ export default function Home() {
               </button>
 
               {flashcards && (
-                <div className="mt-4 p-4 rounded-lg bg-slate-950 border border-slate-700 whitespace-pre-wrap">
-                  {flashcards}
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      exportTextToPdf(
+                        flashcardTopic
+                          ? `Odin Flashcards - ${flashcardTopic}`
+                          : "Odin Flashcards",
+                        flashcards
+                      )
+                    }
+                    className="mb-3 px-4 py-2 rounded bg-slate-700 hover:bg-slate-600"
+                  >
+                    Export Flashcards PDF
+                  </button>
+
+                  <div className="p-4 rounded-lg bg-slate-950 border border-slate-700 whitespace-pre-wrap">
+                    {flashcards}
+                  </div>
                 </div>
               )}
             </div>
