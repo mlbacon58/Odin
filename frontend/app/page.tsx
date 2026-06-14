@@ -505,21 +505,40 @@ export default function Home() {
                           Retrieved Sources
                         </div>
 
-                        {msg.sources.map((source, idx) => (
-                          <details
-                            key={idx}
-                            className="mb-2 bg-slate-950 border border-slate-700 rounded p-2"
-                          >
-                            <summary className="cursor-pointer text-sm text-blue-300">
-                              {source.file_name} (
-                              {Number(source.similarity).toFixed(2)})
-                            </summary>
+                        {msg.sources.map((source, idx) => {
+                          const similarity = Number(source.similarity || 0);
 
-                            <div className="mt-2 text-sm text-slate-300 whitespace-pre-wrap">
-                              {source.content}
-                            </div>
-                          </details>
-                        ))}
+                          const percent = Math.max(
+                            0,
+                            Math.min(100, Math.round(similarity * 100))
+                          );
+
+                          return (
+                            <details
+                              key={idx}
+                              className="mb-3 bg-slate-950 border border-slate-700 rounded p-3"
+                            >
+                              <summary className="cursor-pointer text-sm text-blue-300">
+                                #{idx + 1} {source.file_name} — {percent}% match
+                              </summary>
+
+                              <div className="mt-3 h-2 w-full rounded bg-slate-800 overflow-hidden">
+                                <div
+                                  className="h-2 rounded bg-blue-500"
+                                  style={{ width: `${percent}%` }}
+                                />
+                              </div>
+
+                              <div className="mt-2 text-xs text-slate-500">
+                                Similarity score: {similarity.toFixed(4)}
+                              </div>
+
+                              <div className="mt-3 text-sm text-slate-300 whitespace-pre-wrap">
+                                {source.content}
+                              </div>
+                            </details>
+                          );
+                        })}
                       </div>
                     )}
                 </div>
