@@ -1,28 +1,26 @@
-import { createClient } from "@supabase/supabase-js";
+import { query } from "@/lib/postgres";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const LOCAL_USER_ID =
+  process.env.ODIN_LOCAL_USER_ID ||
+  "55e8e5f6-1c1f-4e5f-a931-60b54918f56f";
 
-export async function GET(req: Request) {
+export async function GET() {
   try {
-    const { searchParams } = new URL(req.url);
-    const userId = searchParams.get("userId");
+    const result = await query(
+      `
+      select
+        id,
+        name,
+        user_id,
+        created_at
+      from collections
+      where user_id = $1
+      order by created_at desc
+      `,
+      [LOCAL_USER_ID]
+    );
 
-    if (!userId) {
-      return Response.json({ error: "Missing userId." }, { status: 400 });
-    }
-
-    const { data, error } = await supabase
-      .from("collections")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false });
-
-    if (error) throw error;
-
-    return Response.json(data);
+    return Response.json(result.rows);
   } catch (error) {
     console.error(error);
 
@@ -35,27 +33,25 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const { name, userId } = await req.json();
+    const { name } = await req.json();
 
-    if (!name || !userId) {
+    if (!name || !String(name).trim()) {
       return Response.json(
-        { error: "Missing name or userId." },
+        { error: "Missing collection name." },
         { status: 400 }
       );
     }
 
-    const { data, error } = await supabase
-      .from("collections")
-      .insert({
-        name,
-        user_id: userId,
-      })
-      .select()
-      .single();
+    const result = await query(
+      `
+      insert into collections (name, user_id)
+      values ($1, $2)
+      returning id, name, user_id, created_at
+      `,
+      [String(name).trim(), LOCAL_USER_ID]
+    );
 
-    if (error) throw error;
-
-    return Response.json(data);
+    return Response.json(result.rows[0]);
   } catch (error) {
     console.error(error);
 

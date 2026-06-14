@@ -1,15 +1,9 @@
 import { createLocalEmbedding } from "@/lib/local-embeddings";
-import OpenAI from "openai";
-import { createClient } from "@supabase/supabase-js";
+import { query } from "@/lib/postgres";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const LOCAL_USER_ID =
+  process.env.ODIN_LOCAL_USER_ID ||
+  "55e8e5f6-1c1f-4e5f-a931-60b54918f56f";
 
 async function searchRelevantChunks(
   message: string,
@@ -19,18 +13,58 @@ async function searchRelevantChunks(
 ) {
   const queryEmbedding = await createLocalEmbedding(message);
 
-  const { data, error } = await supabase.rpc("match_document_chunks", {
-    query_embedding: queryEmbedding,
-    match_user_id: userId,
-    match_collection_id: collectionId || null,
-    match_document_ids:
+  const result = await query(
+    `
+    select *
+    from match_document_chunks(
+      $1::vector,
+      $2::uuid,
+      $3::uuid,
+      $4::uuid[],
+      $5::int
+    )
+    `,
+    [
+      `[${queryEmbedding.join(",")}]`,
+      userId,
+      collectionId || null,
       documentIds && documentIds.length > 0 ? documentIds : null,
-    match_count: 5,
-  });
+      5,
+    ]
+  );
 
-  if (error) throw error;
+  return result.rows || [];
+}
 
-  return data || [];
+async function generateWithLocalLlm(prompt: string) {
+  const ollamaRes = await fetch(
+    `${process.env.LOCAL_LLM_URL || "http://localhost:11434"}/api/chat`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: process.env.LOCAL_LLM_MODEL || "llama3.1:8b",
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        stream: false,
+      }),
+    }
+  );
+
+  if (!ollamaRes.ok) {
+    const errorText = await ollamaRes.text();
+    throw new Error(`Ollama error: ${errorText}`);
+  }
+
+  const ollamaData = await ollamaRes.json();
+
+  return ollamaData.message?.content || "No local model response.";
 }
 
 export async function POST(req: Request) {
@@ -43,32 +77,38 @@ export async function POST(req: Request) {
       documentIds,
     } = await req.json();
 
+    if (!message || !String(message).trim()) {
+      return Response.json({ error: "Missing message." }, { status: 400 });
+    }
+
+    const activeUserId = userId || LOCAL_USER_ID;
+
     let activeConversationId = conversationId;
 
     if (!activeConversationId) {
-      const { data: conversation, error } = await supabase
-        .from("conversations")
-        .insert({
-          title: message.substring(0, 60),
-          user_id: userId,
-        })
-        .select()
-        .single();
+      const conversationResult = await query(
+        `
+        insert into conversations (title, user_id)
+        values ($1, $2)
+        returning id
+        `,
+        [String(message).substring(0, 60), activeUserId]
+      );
 
-      if (error) throw error;
-
-      activeConversationId = conversation.id;
+      activeConversationId = conversationResult.rows[0].id;
     }
 
-    await supabase.from("messages").insert({
-      conversation_id: activeConversationId,
-      role: "user",
-      content: message,
-    });
+    await query(
+      `
+      insert into messages (conversation_id, role, content)
+      values ($1, $2, $3)
+      `,
+      [activeConversationId, "user", message]
+    );
 
     const chunks = await searchRelevantChunks(
       message,
-      userId,
+      activeUserId,
       collectionId,
       documentIds
     );
@@ -82,7 +122,7 @@ export async function POST(req: Request) {
     const prompt = `
 You are an engineering assistant.
 
-Use the document context below if it is relevant.
+Use only the document context below when answering document-specific questions.
 When you use document context, cite the source filename in your answer.
 If the document context does not contain the answer, say so clearly.
 
@@ -93,40 +133,15 @@ USER QUESTION:
 ${message}
 `;
 
-const ollamaRes = await fetch(
-  `${process.env.LOCAL_LLM_URL || "http://localhost:11434"}/api/chat`,
-  {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: process.env.LOCAL_LLM_MODEL || "llama3.1:8b",
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      stream: false,
-    }),
-  }
-);
+    const reply = await generateWithLocalLlm(prompt);
 
-if (!ollamaRes.ok) {
-  const errorText = await ollamaRes.text();
-  throw new Error(`Ollama error: ${errorText}`);
-}
-
-const ollamaData = await ollamaRes.json();
-const reply =
-  ollamaData.message?.content || "No local model response.";
-
-await supabase.from("messages").insert({
-  conversation_id: activeConversationId,
-  role: "assistant",
-  content: reply,
-});
+    await query(
+      `
+      insert into messages (conversation_id, role, content)
+      values ($1, $2, $3)
+      `,
+      [activeConversationId, "assistant", reply]
+    );
 
     return Response.json({
       reply,

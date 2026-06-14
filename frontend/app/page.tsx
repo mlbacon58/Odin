@@ -73,11 +73,10 @@ export default function Home() {
   }, []);
 
   async function getUserId() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    return user?.id || null;
+  return (
+    process.env.NEXT_PUBLIC_ODIN_LOCAL_USER_ID ||
+    "55e8e5f6-1c1f-4e5f-a931-60b54918f56f"
+   );
   }
 
   async function signOut() {

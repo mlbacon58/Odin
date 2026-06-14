@@ -1,23 +1,33 @@
-import { supabase } from "@/lib/supabase";
+import { query } from "@/lib/postgres";
 
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
+  try {
+    const { id } = await params;
 
-  const { data, error } = await supabase
-    .from("messages")
-    .select("*")
-    .eq("conversation_id", id)
-    .order("created_at");
+    const result = await query(
+      `
+      select
+        id,
+        role,
+        content,
+        created_at
+      from messages
+      where conversation_id = $1
+      order by created_at asc
+      `,
+      [id]
+    );
 
-  if (error) {
+    return Response.json(result.rows);
+  } catch (error) {
+    console.error(error);
+
     return Response.json(
-      { error: error.message },
+      { error: "Failed to load messages." },
       { status: 500 }
     );
   }
-
-  return Response.json(data);
 }

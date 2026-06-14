@@ -1,42 +1,45 @@
-import { createClient } from "@supabase/supabase-js";
+import { query } from "@/lib/postgres";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const LOCAL_USER_ID =
+  process.env.ODIN_LOCAL_USER_ID ||
+  "55e8e5f6-1c1f-4e5f-a931-60b54918f56f";
 
 export async function GET() {
   try {
-    const { data, error } = await supabase
-      .from("documents")
-      .select(`
-        id,
-        file_name,
-        file_type,
-        status,
-        created_at,
-        collection_id,
-        collections (
-          name
-        ),
-        document_chunks (
-          id,
-          embedding
-        )
-      `)
-      .order("created_at", { ascending: false });
+    const result = await query(
+      `
+      select
+        d.id,
+        d.file_name,
+        d.file_type,
+        d.status,
+        d.created_at,
+        d.collection_id,
+        c.name as collection_name,
+        count(dc.id)::int as chunk_count,
+        count(dc.embedding)::int as embedded_count
+      from documents d
+      left join collections c
+        on c.id = d.collection_id
+      left join document_chunks dc
+        on dc.document_id = d.id
+      where d.user_id = $1
+      group by
+        d.id,
+        d.file_name,
+        d.file_type,
+        d.status,
+        d.created_at,
+        d.collection_id,
+        c.name
+      order by d.created_at desc
+      `,
+      [LOCAL_USER_ID]
+    );
 
-    if (error) throw error;
-
-    const documents = data.map((doc: any) => {
-      const chunks = doc.document_chunks || [];
-
-      const embeddedChunks = chunks.filter(
-        (chunk: any) => chunk.embedding !== null
-      );
-
-      const chunkCount = chunks.length;
-      const embeddedCount = embeddedChunks.length;
+    const documents = result.rows.map((doc: any) => {
+      const chunkCount = Number(doc.chunk_count || 0);
+      const embeddedCount = Number(doc.embedded_count || 0);
 
       const completion =
         chunkCount === 0 ? 0 : Math.round((embeddedCount / chunkCount) * 100);
@@ -62,7 +65,7 @@ export async function GET() {
         status: doc.status,
         created_at: doc.created_at,
         collection_id: doc.collection_id,
-        collection_name: doc.collections?.name || "Unassigned",
+        collection_name: doc.collection_name || "Unassigned",
         chunk_count: chunkCount,
         embedded_count: embeddedCount,
         completion,
