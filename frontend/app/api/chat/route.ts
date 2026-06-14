@@ -1,3 +1,4 @@
+import { createLocalEmbedding } from "@/lib/local-embeddings";
 import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
 
@@ -16,12 +17,7 @@ async function searchRelevantChunks(
   collectionId?: string | null,
   documentIds?: string[]
 ) {
-  const embeddingResponse = await openai.embeddings.create({
-    model: "text-embedding-3-small",
-    input: message,
-  });
-
-  const queryEmbedding = embeddingResponse.data[0].embedding;
+  const queryEmbedding = await createLocalEmbedding(message);
 
   const { data, error } = await supabase.rpc("match_document_chunks", {
     query_embedding: queryEmbedding,
@@ -97,18 +93,40 @@ USER QUESTION:
 ${message}
 `;
 
-    const response = await openai.responses.create({
-      model: "gpt-4.1-mini",
-      input: prompt,
-    });
+const ollamaRes = await fetch(
+  `${process.env.LOCAL_LLM_URL || "http://localhost:11434"}/api/chat`,
+  {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: process.env.LOCAL_LLM_MODEL || "llama3.1:8b",
+      messages: [
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      stream: false,
+    }),
+  }
+);
 
-    const reply = response.output_text;
+if (!ollamaRes.ok) {
+  const errorText = await ollamaRes.text();
+  throw new Error(`Ollama error: ${errorText}`);
+}
 
-    await supabase.from("messages").insert({
-      conversation_id: activeConversationId,
-      role: "assistant",
-      content: reply,
-    });
+const ollamaData = await ollamaRes.json();
+const reply =
+  ollamaData.message?.content || "No local model response.";
+
+await supabase.from("messages").insert({
+  conversation_id: activeConversationId,
+  role: "assistant",
+  content: reply,
+});
 
     return Response.json({
       reply,

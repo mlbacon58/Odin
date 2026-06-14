@@ -1,9 +1,5 @@
-import OpenAI from "openai";
+import { createLocalEmbedding } from "@/lib/local-embeddings";
 import { createClient } from "@supabase/supabase-js";
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -16,12 +12,7 @@ async function retrieveExamContext(
   collectionId?: string | null,
   documentIds?: string[]
 ) {
-  const embeddingResponse = await openai.embeddings.create({
-    model: "text-embedding-3-small",
-    input: topic,
-  });
-
-  const queryEmbedding = embeddingResponse.data[0].embedding;
+  const queryEmbedding = await createLocalEmbedding(topic);
 
   const { data, error } = await supabase.rpc("match_document_chunks", {
     query_embedding: queryEmbedding,
@@ -35,6 +26,37 @@ async function retrieveExamContext(
   if (error) throw error;
 
   return data || [];
+}
+
+async function generateWithLocalLlm(prompt: string) {
+  const ollamaRes = await fetch(
+    `${process.env.LOCAL_LLM_URL || "http://localhost:11434"}/api/chat`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: process.env.LOCAL_LLM_MODEL || "llama3.1:8b",
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        stream: false,
+      }),
+    }
+  );
+
+  if (!ollamaRes.ok) {
+    const errorText = await ollamaRes.text();
+    throw new Error(`Ollama error: ${errorText}`);
+  }
+
+  const ollamaData = await ollamaRes.json();
+
+  return ollamaData.message?.content || "No local model response.";
 }
 
 export async function POST(req: Request) {
@@ -109,13 +131,10 @@ Brief learner instructions.
 - filename
 `;
 
-    const response = await openai.responses.create({
-      model: "gpt-4.1-mini",
-      input: prompt,
-    });
+    const exam = await generateWithLocalLlm(prompt);
 
     return Response.json({
-      exam: response.output_text,
+      exam,
       sources: chunks,
     });
   } catch (error) {

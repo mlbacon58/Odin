@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { createLocalEmbedding } from "@/lib/local-embeddings";
 import { createClient } from "@supabase/supabase-js";
 
 const openai = new OpenAI({
@@ -22,12 +22,7 @@ export async function POST(req: Request) {
       return Response.json({ error: "Missing userId." }, { status: 400 });
     }
 
-    const embeddingResponse = await openai.embeddings.create({
-      model: "text-embedding-3-small",
-      input: query,
-    });
-
-    const queryEmbedding = embeddingResponse.data[0].embedding;
+   const queryEmbedding = await createLocalEmbedding(query);
 
     const { data, error } = await supabase.rpc("match_document_chunks", {
       query_embedding: queryEmbedding,

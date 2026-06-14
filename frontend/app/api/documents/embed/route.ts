@@ -1,9 +1,5 @@
-import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+import { createLocalEmbedding } from "@/lib/local-embeddings";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -15,29 +11,29 @@ export async function POST(req: Request) {
     const { documentId } = await req.json();
 
     if (!documentId) {
-      return Response.json({ error: "Missing documentId." }, { status: 400 });
+      return Response.json(
+        { error: "Missing documentId." },
+        { status: 400 }
+      );
     }
 
-    const { data: chunks, error } = await supabase
+    const { data: chunks, error: chunksError } = await supabase
       .from("document_chunks")
-      .select("id, content")
+      .select("*")
       .eq("document_id", documentId)
-      .is("embedding", null)
-      .order("chunk_index");
+      .order("chunk_index", { ascending: true });
 
-    if (error) throw error;
+    if (chunksError) throw chunksError;
 
     if (!chunks || chunks.length === 0) {
-      return Response.json({ message: "No chunks need embeddings.", chunks: 0 });
+      return Response.json(
+        { error: "No chunks found for this document." },
+        { status: 400 }
+      );
     }
 
     for (const chunk of chunks) {
-      const embeddingResponse = await openai.embeddings.create({
-        model: "text-embedding-3-small",
-        input: chunk.content,
-      });
-
-      const embedding = embeddingResponse.data[0].embedding;
+      const embedding = await createLocalEmbedding(chunk.content);
 
       const { error: updateError } = await supabase
         .from("document_chunks")
@@ -53,7 +49,7 @@ export async function POST(req: Request) {
       .eq("id", documentId);
 
     return Response.json({
-      message: "Embeddings created.",
+      message: "Embeddings created successfully.",
       chunks: chunks.length,
     });
   } catch (error) {
